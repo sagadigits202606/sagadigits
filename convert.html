@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>PDF → PNG 変換ツール</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #1a1a2e; color: #fff; padding: 30px; max-width: 600px; }
+    h2 { margin-bottom: 8px; }
+    .sub { color: #aaa; margin-bottom: 24px; font-size: 14px; }
+    .card { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    label { font-size: 15px; font-weight: bold; }
+    input[type=file] { display: block; margin-top: 10px; color: #ccc; font-size: 13px; }
+    .page-row { margin-top: 10px; font-size: 13px; display: none; }
+    select { background: #333; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 13px; border: none; margin-left: 6px; }
+    canvas { display: block; max-width: 280px; border-radius: 6px; margin: 12px 0; }
+    .status { font-size: 13px; color: #aaa; margin-top: 6px; min-height: 18px; }
+    .dl-btn {
+      background: #8b3fd1; color: #fff; border: none; padding: 10px 24px;
+      border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 4px; display: none;
+    }
+    .dl-btn:hover { background: #6c2fb5; }
+  </style>
+</head>
+<body>
+  <h2>PDF → 高解像度PNG 変換</h2>
+  <p class="sub">PDFファイルを選択すると自動でレンダリングします。複数ページのPDFはページを選択できます。</p>
+
+  <div class="card" id="c0">
+    <label>HP1.pdf を選択</label>
+    <input type="file" accept="application/pdf" onchange="load(this,0,'HP1_hires.png')">
+    <div class="page-row" id="pr0">ページ: <select id="ps0" onchange="render(0)"></select></div>
+    <div class="status" id="st0"></div>
+    <canvas id="cv0"></canvas>
+    <button class="dl-btn" id="dl0" onclick="dl(0,'HP1_hires.png')">HP1_hires.png をダウンロード</button>
+  </div>
+
+  <div class="card" id="c1">
+    <label>HP2.pdf を選択</label>
+    <input type="file" accept="application/pdf" onchange="load(this,1,'HP2_hires.png')">
+    <div class="page-row" id="pr1">ページ: <select id="ps1" onchange="render(1)"></select></div>
+    <div class="status" id="st1"></div>
+    <canvas id="cv1"></canvas>
+    <button class="dl-btn" id="dl1" onclick="dl(1,'HP2_hires.png')">HP2_hires.png をダウンロード</button>
+  </div>
+
+  <div class="card" id="c2">
+    <label>HP3.pdf を選択</label>
+    <input type="file" accept="application/pdf" onchange="load(this,2,'HP3_hires.png')">
+    <div class="page-row" id="pr2">ページ: <select id="ps2" onchange="render(2)"></select></div>
+    <div class="status" id="st2"></div>
+    <canvas id="cv2"></canvas>
+    <button class="dl-btn" id="dl2" onclick="dl(2,'HP3_hires.png')">HP3_hires.png をダウンロード</button>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const DPR = 4;
+    const docs = {};
+
+    async function load(input, idx, fname) {
+      const file = input.files[0];
+      if (!file) return;
+      document.getElementById('st' + idx).textContent = '読み込み中...';
+      document.getElementById('dl' + idx).style.display = 'none';
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      docs[idx] = pdf;
+      const sel = document.getElementById('ps' + idx);
+      sel.innerHTML = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = i + ' ページ目';
+        sel.appendChild(o);
+      }
+      document.getElementById('pr' + idx).style.display = pdf.numPages > 1 ? 'block' : 'none';
+      render(idx);
+    }
+
+    async function render(idx) {
+      const pdf = docs[idx];
+      if (!pdf) return;
+      const pageNum = parseInt(document.getElementById('ps' + idx).value) || 1;
+      const st = document.getElementById('st' + idx);
+      const cv = document.getElementById('cv' + idx);
+      const btn = document.getElementById('dl' + idx);
+      st.textContent = 'レンダリング中...';
+      btn.style.display = 'none';
+      try {
+        const page = await pdf.getPage(pageNum);
+        const vp = page.getViewport({ scale: DPR });
+        cv.width = vp.width; cv.height = vp.height;
+        cv.style.width = (vp.width / DPR) + 'px';
+        cv.style.height = (vp.height / DPR) + 'px';
+        await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+        st.textContent = '✅ 完了 (' + cv.width + '×' + cv.height + 'px)';
+        btn.style.display = 'block';
+      } catch(e) {
+        st.textContent = '❌ エラー: ' + e.message;
+      }
+    }
+
+    function dl(idx, fname) {
+      const a = document.createElement('a');
+      a.href = document.getElementById('cv' + idx).toDataURL('image/png');
+      a.download = fname; a.click();
+    }
+  </script>
+</body>
+</html>
