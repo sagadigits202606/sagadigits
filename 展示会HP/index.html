@@ -139,7 +139,9 @@
     slideEl.appendChild(canvas);
   }
 
-  pdfs.forEach((url, i) => renderPDF(url, slides[i]));
+  window.addEventListener('load', () => {
+    pdfs.forEach((url, i) => renderPDF(url, slides[i]));
+  });
 
   function goTo(n) {
     if (n < 0 || n >= total) return;
